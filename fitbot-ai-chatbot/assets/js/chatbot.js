@@ -58,8 +58,12 @@
                 this.sendButton = chatArea.find('.fitbot-send-button');
                 this.typingIndicator = chatArea.find('.fitbot-typing-indicator');
                 
-                this.applyStyling();
-                return;
+                if (this.messagesContainer.length && this.messageInput.length && this.sendButton.length) {
+                    this.applyStyling();
+                    return;
+                } else {
+                    console.warn('FITBOT: Some required elements not found, falling back to HTML generation');
+                }
             }
             
             var chatbotHtml = `
@@ -176,22 +180,35 @@
             var self = this;
             var assistantSlug = this.options.assistantSlug;
             
-            this.sendButton.on('click', function() {
-                self.sendMessage();
-            });
-            
-            this.messageInput.on('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
+            if (this.sendButton && this.sendButton.length) {
+                this.sendButton.on('click', function() {
                     self.sendMessage();
-                } else if (e.key === 'Enter' && e.shiftKey) {
-                    return true;
-                }
-            });
+                });
+            } else {
+                console.error('FITBOT: Send button not found, cannot bind click event');
+                return;
+            }
             
-            this.messageInput.on('input', function() {
-                self.autoResizeTextarea(this);
-                self.toggleSendButton();
+            if (this.messageInput && this.messageInput.length) {
+                this.messageInput.on('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        self.sendMessage();
+                    } else if (e.key === 'Enter' && e.shiftKey) {
+                        return true;
+                    }
+                });
+                
+                this.messageInput.on('input', function() {
+                    self.autoResizeTextarea(this);
+                    self.toggleSendButton();
+                });
+            } else {
+                console.error('FITBOT: Message input not found, cannot bind input events');
+            }
+            
+            this.container.on('click', '.fitbot-send-button', function() {
+                self.sendMessage();
             });
             
             $(window).on('resize', function() {
@@ -201,8 +218,15 @@
         
         
         sendMessage: function() {
+            if (!this.messageInput || !this.messageInput.length) {
+                console.error('FITBOT: Message input not found');
+                return;
+            }
+            
             var message = this.messageInput.val().trim();
             if (!message || this.isTyping) return;
+            
+            console.log('FITBOT: Sending message:', message);
             
             this.addMessage(message, 'user');
             this.messageInput.val('');
