@@ -222,68 +222,62 @@ class FitbotAIChatbot {
         global $wpdb;
         
         $charset_collate = $wpdb->get_charset_collate();
+        $creation_results = array();
         
-        $this->create_table_with_fallback('fitbot_conversations', "
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            user_id bigint(20) NOT NULL,
-            message_type varchar(20) NOT NULL,
-            message text NOT NULL,
-            response text,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY user_id (user_id)
-        ", $charset_collate);
+        $tables = array(
+            'fitbot_conversations' => "
+                id mediumint(9) NOT NULL AUTO_INCREMENT,
+                user_id bigint(20) NOT NULL,
+                message_type varchar(20) NOT NULL,
+                message text NOT NULL,
+                response text,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY user_id (user_id)
+            ",
+            'fitbot_usage' => "
+                id mediumint(9) NOT NULL AUTO_INCREMENT,
+                user_id bigint(20) NOT NULL,
+                date date NOT NULL,
+                recipes_requested int(11) DEFAULT 0,
+                workouts_requested int(11) DEFAULT 0,
+                questions_asked int(11) DEFAULT 0,
+                PRIMARY KEY (id),
+                UNIQUE KEY user_date (user_id, date)
+            ",
+            'fitbot_assistants' => "
+                id mediumint(9) NOT NULL AUTO_INCREMENT,
+                name varchar(100) NOT NULL,
+                slug varchar(50) NOT NULL,
+                prompt text NOT NULL,
+                personality varchar(50) DEFAULT 'professional',
+                price decimal(10,2) NOT NULL,
+                currency varchar(3) DEFAULT 'EUR',
+                daily_limit int(11) DEFAULT 10,
+                monthly_limit int(11) DEFAULT 300,
+                woo_product_id bigint(20),
+                color varchar(7) DEFAULT '#0073aa',
+                greeting_message text,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                UNIQUE KEY slug (slug)
+            "
+        );
         
-        $this->create_table_with_fallback('fitbot_usage', "
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            user_id bigint(20) NOT NULL,
-            date date NOT NULL,
-            recipes_requested int(11) DEFAULT 0,
-            workouts_requested int(11) DEFAULT 0,
-            questions_asked int(11) DEFAULT 0,
-            PRIMARY KEY (id),
-            UNIQUE KEY user_date (user_id, date)
-        ", $charset_collate);
-        
-        $this->create_table_with_fallback('fitbot_assistants', "
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            name varchar(100) NOT NULL,
-            slug varchar(50) NOT NULL,
-            prompt text NOT NULL,
-            personality varchar(50) DEFAULT 'professional',
-            price decimal(10,2) NOT NULL,
-            currency varchar(3) DEFAULT 'EUR',
-            daily_limit int(11) DEFAULT 10,
-            monthly_limit int(11) DEFAULT 300,
-            woo_product_id bigint(20),
-            color varchar(7) DEFAULT '#0073aa',
-            greeting_message text,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            UNIQUE KEY slug (slug)
-        ", $charset_collate);
-        
-        $tables_created = array();
-        $table_name = $wpdb->prefix . 'fitbot_conversations';
-        $usage_table = $wpdb->prefix . 'fitbot_usage';
-        $assistants_table = $wpdb->prefix . 'fitbot_assistants';
-        
-        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name) {
-            $tables_created[] = 'conversations';
-        }
-        if ($wpdb->get_var("SHOW TABLES LIKE '$usage_table'") == $usage_table) {
-            $tables_created[] = 'usage';
-        }
-        if ($wpdb->get_var("SHOW TABLES LIKE '$assistants_table'") == $assistants_table) {
-            $tables_created[] = 'assistants';
+        foreach ($tables as $table_name => $columns) {
+            $result = $this->create_table_with_fallback($table_name, $columns, $charset_collate);
+            $creation_results[$table_name] = $result;
+            
+            error_log("FITBOT Table Creation - $table_name: " . ($result['success'] ? 'SUCCESS' : 'FAILED') . " - " . $result['message']);
         }
         
-        update_option('fitbot_tables_created', $tables_created);
+        // Store detailed results for debugging
+        update_option('fitbot_table_creation_results', $creation_results);
         update_option('fitbot_table_creation_attempted', current_time('mysql'));
     }
     
     /**
-     * Create table with dbDelta fallback to direct SQL
+     * Create table with comprehensive fallback and debugging
      */
     private function create_table_with_fallback($table_name, $columns, $charset_collate) {
         global $wpdb;
@@ -291,8 +285,57 @@ class FitbotAIChatbot {
         $full_table_name = $wpdb->prefix . $table_name;
         
         if ($wpdb->get_var("SHOW TABLES LIKE '$full_table_name'") == $full_table_name) {
-            return true;
+            return array('success' => true, 'message' => "Table $table_name already exists");
         }
+        
+        $test_result = $this->test_database_permissions();
+        if (!$test_result['success']) {
+            return array('success' => false, 'message' => "Database permission error: " . $test_result['message']);
+        }
+        
+        $dbdelta_result = $this->try_dbdelta_creation($full_table_name, $columns, $charset_collate);
+        if ($dbdelta_result['success']) {
+            return $dbdelta_result;
+        }
+        
+        $direct_result = $this->try_direct_sql_creation($full_table_name, $columns, $charset_collate);
+        if ($direct_result['success']) {
+            return $direct_result;
+        }
+        
+        $basic_result = $this->try_basic_sql_creation($full_table_name, $table_name, $charset_collate);
+        if ($basic_result['success']) {
+            return $basic_result;
+        }
+        
+        return array('success' => false, 'message' => "All table creation methods failed. dbDelta: " . $dbdelta_result['message'] . " | Direct SQL: " . $direct_result['message'] . " | Basic SQL: " . $basic_result['message']);
+    }
+    
+    /**
+     * Test database permissions
+     */
+    private function test_database_permissions() {
+        global $wpdb;
+        
+        $test_table = $wpdb->prefix . 'fitbot_test_' . time();
+        $sql = "CREATE TABLE $test_table (id INT AUTO_INCREMENT PRIMARY KEY, test_col VARCHAR(10))";
+        
+        $result = $wpdb->query($sql);
+        
+        if ($result === false) {
+            return array('success' => false, 'message' => 'Cannot create tables: ' . $wpdb->last_error);
+        }
+        
+        $wpdb->query("DROP TABLE IF EXISTS $test_table");
+        
+        return array('success' => true, 'message' => 'Database permissions OK');
+    }
+    
+    /**
+     * Try dbDelta table creation
+     */
+    private function try_dbdelta_creation($full_table_name, $columns, $charset_collate) {
+        global $wpdb;
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         
@@ -303,21 +346,94 @@ class FitbotAIChatbot {
         $result = dbDelta($sql);
         
         if ($wpdb->get_var("SHOW TABLES LIKE '$full_table_name'") == $full_table_name) {
-            return true;
+            return array('success' => true, 'message' => 'Created via dbDelta');
         }
         
-        $direct_sql = "CREATE TABLE IF NOT EXISTS $full_table_name (
+        return array('success' => false, 'message' => 'dbDelta failed silently');
+    }
+    
+    /**
+     * Try direct SQL table creation
+     */
+    private function try_direct_sql_creation($full_table_name, $columns, $charset_collate) {
+        global $wpdb;
+        
+        $sql = "CREATE TABLE IF NOT EXISTS $full_table_name (
             $columns
         ) $charset_collate";
         
-        $wpdb->query($direct_sql);
+        $result = $wpdb->query($sql);
         
-        if ($wpdb->last_error) {
-            error_log("FITBOT Table Creation Error for $table_name: " . $wpdb->last_error);
-            return false;
+        if ($result === false) {
+            return array('success' => false, 'message' => 'Direct SQL error: ' . $wpdb->last_error);
         }
         
-        return ($wpdb->get_var("SHOW TABLES LIKE '$full_table_name'") == $full_table_name);
+        if ($wpdb->get_var("SHOW TABLES LIKE '$full_table_name'") == $full_table_name) {
+            return array('success' => true, 'message' => 'Created via direct SQL');
+        }
+        
+        return array('success' => false, 'message' => 'Direct SQL executed but table not found');
+    }
+    
+    /**
+     * Try basic SQL table creation without advanced features
+     */
+    private function try_basic_sql_creation($full_table_name, $table_name, $charset_collate) {
+        global $wpdb;
+        
+        if ($table_name === 'fitbot_assistants') {
+            $sql = "CREATE TABLE IF NOT EXISTS $full_table_name (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                slug VARCHAR(50) NOT NULL,
+                prompt TEXT NOT NULL,
+                personality VARCHAR(50) DEFAULT 'professional',
+                price DECIMAL(10,2) NOT NULL,
+                currency VARCHAR(3) DEFAULT 'EUR',
+                daily_limit INT DEFAULT 10,
+                monthly_limit INT DEFAULT 300,
+                woo_product_id BIGINT,
+                color VARCHAR(7) DEFAULT '#0073aa',
+                greeting_message TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate";
+        } else if ($table_name === 'fitbot_conversations') {
+            $sql = "CREATE TABLE IF NOT EXISTS $full_table_name (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                message_type VARCHAR(20) NOT NULL,
+                message TEXT NOT NULL,
+                response TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate";
+        } else if ($table_name === 'fitbot_usage') {
+            $sql = "CREATE TABLE IF NOT EXISTS $full_table_name (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                date DATE NOT NULL,
+                recipes_requested INT DEFAULT 0,
+                workouts_requested INT DEFAULT 0,
+                questions_asked INT DEFAULT 0
+            ) $charset_collate";
+        }
+        
+        $result = $wpdb->query($sql);
+        
+        if ($result === false) {
+            return array('success' => false, 'message' => 'Basic SQL error: ' . $wpdb->last_error);
+        }
+        
+        if ($wpdb->get_var("SHOW TABLES LIKE '$full_table_name'") == $full_table_name) {
+            if ($table_name === 'fitbot_assistants') {
+                $wpdb->query("ALTER TABLE $full_table_name ADD UNIQUE KEY slug (slug)");
+            }
+            if ($table_name === 'fitbot_usage') {
+                $wpdb->query("ALTER TABLE $full_table_name ADD UNIQUE KEY user_date (user_id, date)");
+            }
+            return array('success' => true, 'message' => 'Created via basic SQL');
+        }
+        
+        return array('success' => false, 'message' => 'Basic SQL executed but table not found');
     }
     
     /**
@@ -330,8 +446,10 @@ class FitbotAIChatbot {
         
         $this->create_tables();
         
-        $tables_created = get_option('fitbot_tables_created', array());
+        $creation_results = get_option('fitbot_table_creation_results', array());
         $missing_tables = array();
+        $success_messages = array();
+        $error_messages = array();
         
         global $wpdb;
         $required_tables = array(
@@ -343,14 +461,21 @@ class FitbotAIChatbot {
         foreach ($required_tables as $name => $full_name) {
             if ($wpdb->get_var("SHOW TABLES LIKE '$full_name'") != $full_name) {
                 $missing_tables[] = $name;
+                if (isset($creation_results[$name])) {
+                    $error_messages[] = "$name: " . $creation_results[$name]['message'];
+                }
+            } else {
+                if (isset($creation_results[$name])) {
+                    $success_messages[] = "$name: " . $creation_results[$name]['message'];
+                }
             }
         }
         
         if (empty($missing_tables)) {
-            $message = 'All database tables created successfully!';
+            $message = 'All database tables created successfully! ' . implode(', ', $success_messages);
             $message_type = 'success';
         } else {
-            $message = 'Table creation attempted but some tables are still missing: ' . implode(', ', $missing_tables) . '. Please check your database permissions or contact your hosting provider.';
+            $message = 'Table creation failed for: ' . implode(', ', $missing_tables) . '. Detailed errors: ' . implode(' | ', $error_messages) . '. Please contact your hosting provider about database permissions.';
             $message_type = 'error';
         }
         
