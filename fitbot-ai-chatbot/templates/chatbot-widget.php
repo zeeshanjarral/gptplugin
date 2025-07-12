@@ -27,7 +27,7 @@ if (is_user_logged_in()) {
 <script type="text/javascript">
 var fitbot_ajax = {
     ajax_url: '<?php echo admin_url('admin-ajax.php'); ?>',
-    nonce: '<?php echo wp_create_nonce('fitbot_chat_nonce'); ?>',
+    nonce: '<?php echo wp_create_nonce('fitbot_nonce'); ?>',
     delay: <?php echo intval($settings['delay']); ?>,
     greeting: <?php echo json_encode($settings['greeting']); ?>,
     color: <?php echo json_encode($settings['color']); ?>,
@@ -41,10 +41,11 @@ var fitbot_ajax = {
 
 <?php
 if ($settings['color'] !== '#0073aa') {
+    $rgb = hex_to_rgb($settings['color']);
     echo '<style id="fitbot-custom-theme">
         .fitbot-chatbot {
             --fitbot-primary-color: ' . esc_attr($settings['color']) . ';
-            --fitbot-primary-rgb: ' . esc_attr($this->hex_to_rgb($settings['color'])) . ';
+            --fitbot-primary-rgb: ' . esc_attr($rgb) . ';
         }
     </style>';
 }
