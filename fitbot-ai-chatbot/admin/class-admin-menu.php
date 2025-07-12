@@ -95,7 +95,6 @@ class Fitbot_Admin_Menu {
             $this->save_settings();
         }
         
-        include FITBOT_PLUGIN_PATH . 'admin/class-settings-page.php';
         $settings_page = new Fitbot_Settings_Page();
         $settings_page->render();
     }
@@ -104,7 +103,6 @@ class Fitbot_Admin_Menu {
      * Content management page callback
      */
     public function content_page() {
-        include FITBOT_PLUGIN_PATH . 'admin/class-content-upload-page.php';
         $content_page = new Fitbot_Content_Upload_Page();
         $content_page->render();
     }
