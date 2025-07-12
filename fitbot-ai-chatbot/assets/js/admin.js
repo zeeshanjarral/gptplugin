@@ -111,6 +111,35 @@
                 
                 FitbotAdmin.showMessage('Saving settings...', 'info');
             });
+            
+            this.initSlugValidation();
+        },
+        
+        initSlugValidation: function() {
+            var reservedSlugs = ['start', 'pro', 'vip'];
+            
+            $('#assistant_slug').on('input blur', function() {
+                var slug = $(this).val().toLowerCase();
+                var $errorMsg = $('#slug-error-message');
+                
+                $errorMsg.remove();
+                
+                if (reservedSlugs.includes(slug)) {
+                    $(this).after('<p id="slug-error-message" style="color: #d63638; margin-top: 5px;">Warning: This slug is already used by a default assistant. Please choose a different slug.</p>');
+                    $(this).css('border-color', '#d63638');
+                } else {
+                    $(this).css('border-color', '');
+                }
+            });
+            
+            $('form').on('submit', function(e) {
+                var slug = $('#assistant_slug').val().toLowerCase();
+                if (reservedSlugs.includes(slug)) {
+                    e.preventDefault();
+                    alert('Please choose a different slug. "' + slug + '" is already used by a default assistant.');
+                    $('#assistant_slug').focus();
+                }
+            });
         },
         
         initBulkUpload: function() {

@@ -320,6 +320,17 @@ class Fitbot_Assistant_Manager {
         $color = sanitize_hex_color($_POST['assistant_color']);
         $greeting_message = sanitize_textarea_field($_POST['greeting_message']);
         
+        if (!$assistant_id) {
+            $existing_slug = $wpdb->get_var($wpdb->prepare(
+                "SELECT slug FROM $table WHERE slug = %s",
+                $slug
+            ));
+            
+            if ($existing_slug) {
+                wp_die(__('Error: An assistant with the slug "' . esc_html($slug) . '" already exists. Please choose a different slug.', 'fitbot-ai-chatbot'));
+            }
+        }
+        
         $data = array(
             'name' => $name,
             'slug' => $slug,
@@ -343,7 +354,15 @@ class Fitbot_Assistant_Manager {
         }
         
         if ($result === false) {
-            wp_die(__('Error saving assistant', 'fitbot-ai-chatbot'));
+            if (strpos($wpdb->last_error, 'Duplicate entry') !== false && strpos($wpdb->last_error, 'slug') !== false) {
+                wp_die(__('Error: An assistant with this slug already exists. Please choose a different slug.', 'fitbot-ai-chatbot'));
+            }
+            elseif (strpos($wpdb->last_error, 'cannot be null') !== false) {
+                wp_die(__('Error: All required fields must be filled out.', 'fitbot-ai-chatbot'));
+            }
+            else {
+                wp_die(__('Error saving assistant: ' . esc_html($wpdb->last_error), 'fitbot-ai-chatbot'));
+            }
         }
         
         wp_redirect(admin_url('admin.php?page=fitbot-assistants&message=' . urlencode($message)));
