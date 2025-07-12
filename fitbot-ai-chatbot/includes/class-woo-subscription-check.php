@@ -207,4 +207,26 @@ class Fitbot_Woo_Subscription_Check {
     public function is_subscriptions_active() {
         return class_exists('WC_Subscriptions') && function_exists('wcs_user_has_subscription');
     }
+    
+    /**
+     * Check if user has access to specific assistant
+     */
+    public function check_assistant_access($user_id, $assistant_id) {
+        if (!$user_id) {
+            return false;
+        }
+        
+        global $wpdb;
+        $table = $wpdb->prefix . 'fitbot_assistants';
+        $assistant = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE id = %d",
+            $assistant_id
+        ), ARRAY_A);
+        
+        if (!$assistant || !$assistant['woo_product_id']) {
+            return true; // Free assistant or no product linked
+        }
+        
+        return $this->has_active_subscription($user_id, $assistant['woo_product_id']);
+    }
 }
