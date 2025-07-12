@@ -223,8 +223,7 @@ class FitbotAIChatbot {
         
         $charset_collate = $wpdb->get_charset_collate();
         
-        $table_name = $wpdb->prefix . 'fitbot_conversations';
-        $sql = "CREATE TABLE $table_name (
+        $this->create_table_with_fallback('fitbot_conversations', "
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             user_id bigint(20) NOT NULL,
             message_type varchar(20) NOT NULL,
@@ -233,10 +232,9 @@ class FitbotAIChatbot {
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY user_id (user_id)
-        ) $charset_collate;";
+        ", $charset_collate);
         
-        $usage_table = $wpdb->prefix . 'fitbot_usage';
-        $usage_sql = "CREATE TABLE $usage_table (
+        $this->create_table_with_fallback('fitbot_usage', "
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             user_id bigint(20) NOT NULL,
             date date NOT NULL,
@@ -245,13 +243,12 @@ class FitbotAIChatbot {
             questions_asked int(11) DEFAULT 0,
             PRIMARY KEY (id),
             UNIQUE KEY user_date (user_id, date)
-        ) $charset_collate;";
+        ", $charset_collate);
         
-        $assistants_table = $wpdb->prefix . 'fitbot_assistants';
-        $assistants_sql = "CREATE TABLE $assistants_table (
+        $this->create_table_with_fallback('fitbot_assistants', "
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             name varchar(100) NOT NULL,
-            slug varchar(50) NOT NULL UNIQUE,
+            slug varchar(50) NOT NULL,
             prompt text NOT NULL,
             personality varchar(50) DEFAULT 'professional',
             price decimal(10,2) NOT NULL,
@@ -263,20 +260,14 @@ class FitbotAIChatbot {
             greeting_message text,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            KEY slug (slug)
-        ) $charset_collate;";
-        
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        
-        $result1 = dbDelta($sql);
-        $result2 = dbDelta($usage_sql);
-        $result3 = dbDelta($assistants_sql);
-        
-        if ($wpdb->last_error) {
-            error_log('FITBOT Table Creation Error: ' . $wpdb->last_error);
-        }
+            UNIQUE KEY slug (slug)
+        ", $charset_collate);
         
         $tables_created = array();
+        $table_name = $wpdb->prefix . 'fitbot_conversations';
+        $usage_table = $wpdb->prefix . 'fitbot_usage';
+        $assistants_table = $wpdb->prefix . 'fitbot_assistants';
+        
         if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name) {
             $tables_created[] = 'conversations';
         }
@@ -289,6 +280,44 @@ class FitbotAIChatbot {
         
         update_option('fitbot_tables_created', $tables_created);
         update_option('fitbot_table_creation_attempted', current_time('mysql'));
+    }
+    
+    /**
+     * Create table with dbDelta fallback to direct SQL
+     */
+    private function create_table_with_fallback($table_name, $columns, $charset_collate) {
+        global $wpdb;
+        
+        $full_table_name = $wpdb->prefix . $table_name;
+        
+        if ($wpdb->get_var("SHOW TABLES LIKE '$full_table_name'") == $full_table_name) {
+            return true;
+        }
+        
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        
+        $sql = "CREATE TABLE $full_table_name (
+            $columns
+        ) $charset_collate;";
+        
+        $result = dbDelta($sql);
+        
+        if ($wpdb->get_var("SHOW TABLES LIKE '$full_table_name'") == $full_table_name) {
+            return true;
+        }
+        
+        $direct_sql = "CREATE TABLE IF NOT EXISTS $full_table_name (
+            $columns
+        ) $charset_collate";
+        
+        $wpdb->query($direct_sql);
+        
+        if ($wpdb->last_error) {
+            error_log("FITBOT Table Creation Error for $table_name: " . $wpdb->last_error);
+            return false;
+        }
+        
+        return ($wpdb->get_var("SHOW TABLES LIKE '$full_table_name'") == $full_table_name);
     }
     
     /**
