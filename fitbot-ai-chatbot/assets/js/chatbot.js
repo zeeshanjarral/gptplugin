@@ -1,28 +1,42 @@
 /**
  * FITBOT AI Chatbot Frontend JavaScript
  * Responsive design for mobile, desktop, and tablet
+ * Supports multiple assistant instances via shortcodes
  */
 
 (function($) {
     'use strict';
     
-    var FitbotChatbot = {
-        isOpen: false,
-        isTyping: false,
-        conversationHistory: [],
-        settings: {
-            delay: fitbot_ajax.delay || 3000,
-            greeting: fitbot_ajax.greeting || 'Hello! I\'m FITBOT, your AI fitness assistant. What are your health and fitness goals today?',
-            color: fitbot_ajax.color || '#0073aa',
-            position: fitbot_ajax.position || 'bottom-right',
-            enableSound: fitbot_ajax.enable_sound || true,
-            enableTyping: fitbot_ajax.enable_typing || true
-        },
+    function FitbotChatbot(options) {
+        this.options = $.extend({
+            container: null,
+            assistantId: null,
+            assistantSlug: null,
+            assistantName: 'FITBOT Assistant',
+            color: '#0073aa',
+            greeting: 'Hello! How can I help you today?',
+            ajax_url: fitbot_ajax ? fitbot_ajax.ajax_url : '/wp-admin/admin-ajax.php',
+            nonce: fitbot_ajax ? fitbot_ajax.nonce : '',
+            uniqueId: 'fitbot_' + Math.random().toString(36).substr(2, 9),
+            enableSound: true,
+            enableTyping: true
+        }, options);
+        
+        this.isOpen = false;
+        this.isTyping = false;
+        this.conversationHistory = [];
+        this.container = $(this.options.container);
+        
+        if (this.container.length) {
+            this.init();
+        }
+    }
+    
+    FitbotChatbot.prototype = {
         
         init: function() {
-            this.createChatbot();
+            this.setupChatInterface();
             this.bindEvents();
-            this.showChatbotAfterDelay();
             this.detectDevice();
         },
         
@@ -35,19 +49,46 @@
             $('body').toggleClass('fitbot-desktop', !isMobile && !isTablet);
         },
         
-        createChatbot: function() {
+        setupChatInterface: function() {
+            var chatArea = this.container.find('.fitbot-chat-area');
+            if (chatArea.length && chatArea.find('.fitbot-chat-messages').length) {
+                this.messagesContainer = chatArea.find('.fitbot-chat-messages');
+                this.inputContainer = chatArea.find('.fitbot-input-container');
+                this.messageInput = chatArea.find('.fitbot-message-input');
+                this.sendButton = chatArea.find('.fitbot-send-button');
+                this.typingIndicator = chatArea.find('.fitbot-typing-indicator');
+                
+                this.applyStyling();
+                return;
+            }
+            
             var chatbotHtml = `
-                <div id="fitbot-chatbot" class="fitbot-chatbot fitbot-${this.settings.position}">
-                    <div id="fitbot-button" class="fitbot-button">
-                        <svg class="fitbot-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                        </svg>
-                        <span class="fitbot-close-icon">×</span>
+                <div class="fitbot-chat-messages" id="fitbot-messages-${this.options.assistantSlug}">
+                    <div class="fitbot-message fitbot-assistant-message">
+                        <div class="fitbot-message-content">${this.options.greeting}</div>
+                        <div class="fitbot-message-time">${this.getCurrentTime()}</div>
                     </div>
-                    
-                    <div id="fitbot-chat-window" class="fitbot-chat-window">
-                        <div class="fitbot-header">
-                            <div class="fitbot-avatar">
+                </div>
+                
+                <div class="fitbot-typing-indicator" id="fitbot-typing-${this.options.assistantSlug}" style="display: none;">
+                    <span></span><span></span><span></span>
+                </div>
+                
+                <div class="fitbot-input-container">
+                    <textarea 
+                        id="fitbot-input-${this.options.assistantSlug}" 
+                        class="fitbot-message-input" 
+                        placeholder="Type your message..."
+                        rows="1"></textarea>
+                    <button 
+                        id="fitbot-send-${this.options.assistantSlug}" 
+                        class="fitbot-send-button" 
+                        type="button">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                </div>
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                                     <circle cx="12" cy="7" r="4"></circle>
@@ -114,38 +155,32 @@
                 </div>
             `;
             
-            $('body').append(chatbotHtml);
+            var chatArea = this.container.find('.fitbot-chat-area');
+            chatArea.html(chatbotHtml);
+            
+            this.messagesContainer = chatArea.find('.fitbot-chat-messages');
+            this.inputContainer = chatArea.find('.fitbot-input-container');
+            this.messageInput = chatArea.find('.fitbot-message-input');
+            this.sendButton = chatArea.find('.fitbot-send-button');
+            this.typingIndicator = chatArea.find('.fitbot-typing-indicator');
+            
             this.applyStyling();
         },
         
         applyStyling: function() {
-            var style = `
-                <style id="fitbot-dynamic-styles">
-                    .fitbot-chatbot {
-                        --fitbot-primary-color: ${this.settings.color};
-                        --fitbot-primary-rgb: ${this.hexToRgb(this.settings.color)};
-                    }
-                </style>
-            `;
-            $('head').append(style);
+            this.container.css('--fitbot-primary-color', this.options.color);
+            this.container.css('--fitbot-primary-rgb', this.hexToRgb(this.options.color));
         },
         
         bindEvents: function() {
             var self = this;
+            var assistantSlug = this.options.assistantSlug;
             
-            $(document).on('click', '#fitbot-button', function() {
-                self.toggleChatbot();
-            });
-            
-            $(document).on('click', '.fitbot-minimize', function() {
-                self.closeChatbot();
-            });
-            
-            $(document).on('click', '#fitbot-send', function() {
+            this.sendButton.on('click', function() {
                 self.sendMessage();
             });
             
-            $(document).on('keydown', '#fitbot-input', function(e) {
+            this.messageInput.on('keydown', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     self.sendMessage();
@@ -154,110 +189,25 @@
                 }
             });
             
-            $(document).on('input', '#fitbot-input', function() {
+            this.messageInput.on('input', function() {
                 self.autoResizeTextarea(this);
                 self.toggleSendButton();
             });
             
-            $(document).on('click', '.fitbot-quick-btn', function() {
-                var message = $(this).data('message');
-                $('#fitbot-input').val(message);
-                self.toggleSendButton();
-                self.sendMessage();
-            });
-            
             $(window).on('resize', function() {
                 self.detectDevice();
-                self.adjustChatbotSize();
-            });
-            
-            $(document).on('click', function(e) {
-                if (self.isOpen && $(window).width() <= 768) {
-                    if (!$(e.target).closest('#fitbot-chatbot').length) {
-                        self.closeChatbot();
-                    }
-                }
-            });
-            
-            $(window).on('orientationchange', function() {
-                setTimeout(function() {
-                    self.adjustChatbotSize();
-                }, 100);
             });
         },
         
-        showChatbotAfterDelay: function() {
-            var self = this;
-            setTimeout(function() {
-                $('#fitbot-chatbot').addClass('fitbot-visible');
-                
-                setTimeout(function() {
-                    $('#fitbot-button').addClass('fitbot-pulse');
-                    setTimeout(function() {
-                        $('#fitbot-button').removeClass('fitbot-pulse');
-                    }, 2000);
-                }, 500);
-            }, this.settings.delay);
-        },
-        
-        toggleChatbot: function() {
-            if (this.isOpen) {
-                this.closeChatbot();
-            } else {
-                this.openChatbot();
-            }
-        },
-        
-        openChatbot: function() {
-            this.isOpen = true;
-            $('#fitbot-chatbot').addClass('fitbot-open');
-            $('#fitbot-input').focus();
-            this.adjustChatbotSize();
-            this.scrollToBottom();
-            
-            if (this.conversationHistory.length > 0) {
-                $('#fitbot-quick-actions').hide();
-            }
-        },
-        
-        closeChatbot: function() {
-            this.isOpen = false;
-            $('#fitbot-chatbot').removeClass('fitbot-open');
-        },
-        
-        adjustChatbotSize: function() {
-            var $chatWindow = $('#fitbot-chat-window');
-            var windowHeight = $(window).height();
-            var windowWidth = $(window).width();
-            
-            if (windowWidth <= 768) {
-                $chatWindow.css({
-                    'height': windowHeight - 20 + 'px',
-                    'max-height': windowHeight - 20 + 'px'
-                });
-            } else if (windowWidth <= 1024) {
-                $chatWindow.css({
-                    'height': Math.min(600, windowHeight - 100) + 'px',
-                    'max-height': windowHeight - 100 + 'px'
-                });
-            } else {
-                $chatWindow.css({
-                    'height': '500px',
-                    'max-height': windowHeight - 100 + 'px'
-                });
-            }
-        },
         
         sendMessage: function() {
-            var message = $('#fitbot-input').val().trim();
+            var message = this.messageInput.val().trim();
             if (!message || this.isTyping) return;
             
             this.addMessage(message, 'user');
-            $('#fitbot-input').val('');
-            this.autoResizeTextarea($('#fitbot-input')[0]);
+            this.messageInput.val('');
+            this.autoResizeTextarea(this.messageInput[0]);
             this.toggleSendButton();
-            
-            $('#fitbot-quick-actions').hide();
             
             this.showTypingIndicator();
             this.sendToServer(message);
@@ -309,10 +259,10 @@
                 </div>
             `;
             
-            $('#fitbot-messages').append(messageHtml);
+            this.messagesContainer.append(messageHtml);
             this.scrollToBottom();
             
-            if (sender === 'bot' && this.settings.enableSound) {
+            if (sender === 'bot' && this.options.enableSound) {
                 this.playNotificationSound();
             }
             
@@ -338,13 +288,15 @@
             var self = this;
             
             $.ajax({
-                url: fitbot_ajax.ajax_url,
+                url: this.options.ajax_url,
                 type: 'POST',
                 data: {
                     action: 'fitbot_chat',
                     message: message,
+                    assistant_slug: this.options.assistantSlug,
+                    assistant_id: this.options.assistantId,
                     type: this.detectMessageType(message),
-                    nonce: fitbot_ajax.nonce
+                    nonce: this.options.nonce
                 },
                 success: function(response) {
                     self.hideTypingIndicator();
@@ -381,16 +333,16 @@
         },
         
         showTypingIndicator: function() {
-            if (!this.settings.enableTyping) return;
+            if (!this.options.enableTyping) return;
             
             this.isTyping = true;
-            $('#fitbot-typing').show();
+            this.typingIndicator.show();
             this.scrollToBottom();
         },
         
         hideTypingIndicator: function() {
             this.isTyping = false;
-            $('#fitbot-typing').hide();
+            this.typingIndicator.hide();
         },
         
         autoResizeTextarea: function(textarea) {
@@ -399,13 +351,14 @@
         },
         
         toggleSendButton: function() {
-            var hasText = $('#fitbot-input').val().trim().length > 0;
-            $('#fitbot-send').prop('disabled', !hasText || this.isTyping);
+            var hasText = this.messageInput.val().trim().length > 0;
+            this.sendButton.prop('disabled', !hasText || this.isTyping);
         },
         
         scrollToBottom: function() {
-            var $messages = $('#fitbot-messages');
-            $messages.scrollTop($messages[0].scrollHeight);
+            if (this.messagesContainer.length) {
+                this.messagesContainer.scrollTop(this.messagesContainer[0].scrollHeight);
+            }
         },
         
         getCurrentTime: function() {
@@ -442,8 +395,69 @@
         }
     };
     
+    window.FitbotAssistants = {
+        instances: {},
+        
+        initShortcodes: function() {
+            var self = this;
+            $('.fitbot-assistant-container').each(function() {
+                var $container = $(this);
+                var assistantId = $container.data('assistant-id');
+                var assistantSlug = $container.data('assistant-slug');
+                var uniqueId = $container.data('unique-id');
+                
+                if (assistantSlug && !self.instances[assistantSlug + '_' + uniqueId]) {
+                    self.instances[assistantSlug + '_' + uniqueId] = new FitbotChatbot({
+                        container: this,
+                        assistantId: assistantId,
+                        assistantSlug: assistantSlug,
+                        uniqueId: uniqueId
+                    });
+                }
+            });
+        },
+        
+        initShortcode: function(data) {
+            if (data.hasAccess && data.isLoggedIn && data.slug) {
+                var instanceKey = data.slug + '_' + data.uniqueId;
+                if (!this.instances[instanceKey]) {
+                    this.instances[instanceKey] = new FitbotChatbot({
+                        container: '#fitbot-assistant-' + data.slug,
+                        assistantId: data.id,
+                        assistantSlug: data.slug,
+                        assistantName: data.name,
+                        color: data.color,
+                        greeting: data.greeting,
+                        ajax_url: data.ajax_url,
+                        nonce: data.nonce,
+                        uniqueId: data.uniqueId
+                    });
+                }
+            }
+        }
+    };
+    
+    var LegacyFitbotChatbot = {
+        init: function() {
+            if (typeof fitbot_ajax !== 'undefined' && $('#fitbot-chatbot-container').length) {
+                new FitbotChatbot({
+                    container: '#fitbot-chatbot-container',
+                    assistantSlug: 'legacy',
+                    color: fitbot_ajax.color || '#0073aa',
+                    greeting: fitbot_ajax.greeting || 'Hello! How can I help you today?',
+                    ajax_url: fitbot_ajax.ajax_url,
+                    nonce: fitbot_ajax.nonce
+                });
+            }
+        }
+    };
+    
     $(document).ready(function() {
-        FitbotChatbot.init();
+        if (typeof FitbotAssistants !== 'undefined') {
+            FitbotAssistants.initShortcodes();
+        }
+        
+        LegacyFitbotChatbot.init();
     });
     
     window.FitbotChatbot = FitbotChatbot;

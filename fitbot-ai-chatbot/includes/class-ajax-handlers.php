@@ -26,6 +26,8 @@ class Fitbot_Ajax_Handlers {
         $user_id = get_current_user_id();
         $message = sanitize_text_field($_POST['message'] ?? '');
         $message_type = sanitize_text_field($_POST['type'] ?? 'general');
+        $assistant_slug = sanitize_text_field($_POST['assistant_slug'] ?? '');
+        $assistant_id = intval($_POST['assistant_id'] ?? 0);
         
         if (empty($message)) {
             wp_send_json_error(array(
@@ -33,24 +35,43 @@ class Fitbot_Ajax_Handlers {
             ));
         }
         
-        $user_plan = $this->subscription_checker->get_user_plan($user_id);
+        $assistant = null;
+        if (!empty($assistant_slug)) {
+            $assistant = $this->get_assistant_by_slug($assistant_slug);
+        } elseif (!empty($assistant_id)) {
+            $assistant = $this->get_assistant_by_id($assistant_id);
+        }
         
-        if ($this->has_reached_daily_limit($user_id, $message_type, $user_plan)) {
-            $upgrade_message = $this->get_upgrade_message($user_plan, $message_type);
-            wp_send_json_success(array(
-                'message' => $upgrade_message,
-                'type' => 'upgrade_suggestion',
-                'upgrade_url' => $this->subscription_checker->get_upgrade_url($this->get_target_plan($user_plan))
+        if (!$assistant) {
+            wp_send_json_error(array(
+                'message' => __('Invalid assistant specified.', 'fitbot-ai-chatbot')
             ));
         }
         
-        $conversation_history = Fitbot_Core::get_conversation_history($user_id, 5);
+        $has_access = $this->check_assistant_access($user_id, $assistant['id']);
+        if (!$has_access) {
+            wp_send_json_success(array(
+                'message' => $this->get_subscription_message($assistant),
+                'type' => 'subscription_required',
+                'upgrade_url' => $this->get_assistant_purchase_url($assistant)
+            ));
+        }
         
-        $response = $this->process_message($message, $message_type, $user_plan, $conversation_history);
+        if ($this->has_reached_assistant_limit($user_id, $assistant['id'], $message_type)) {
+            wp_send_json_success(array(
+                'message' => $this->get_limit_message($assistant),
+                'type' => 'limit_reached',
+                'upgrade_url' => $this->get_assistant_purchase_url($assistant)
+            ));
+        }
         
-        Fitbot_Core::log_conversation($user_id, $message_type, $message, $response['message']);
+        $conversation_history = Fitbot_Core::get_conversation_history($user_id, 5, $assistant['id']);
         
-        Fitbot_Core::track_usage($user_id, $this->get_usage_type($message_type));
+        $response = $this->process_assistant_message($message, $message_type, $assistant, $conversation_history);
+        
+        Fitbot_Core::log_conversation($user_id, $message_type, $message, $response['message'], $assistant['id']);
+        
+        Fitbot_Core::track_assistant_usage($user_id, $assistant['id'], $this->get_usage_type($message_type));
         
         wp_send_json_success($response);
     }
@@ -78,6 +99,30 @@ class Fitbot_Ajax_Handlers {
             default:
                 return $this->handle_general_chat($message, $plan, $history);
         }
+    }
+    
+    /**
+     * Process message for specific assistant
+     */
+    private function process_assistant_message($message, $type, $assistant, $history) {
+        $enhanced_prompt = $this->build_assistant_prompt($assistant, $message, $type);
+        
+        $response = $this->gpt_api->get_chat_response($enhanced_prompt, $assistant['slug'], $history, $assistant['prompt']);
+        
+        if ($response['success']) {
+            return array(
+                'message' => $response['message'],
+                'type' => $type . '_response',
+                'language' => $response['language'] ?? 'en',
+                'assistant_id' => $assistant['id']
+            );
+        }
+        
+        return array(
+            'message' => __('Sorry, I couldn\'t process your message right now. Please try again.', 'fitbot-ai-chatbot'),
+            'type' => 'error',
+            'assistant_id' => $assistant['id']
+        );
     }
     
     /**
@@ -403,5 +448,121 @@ class Fitbot_Ajax_Handlers {
         }
         
         return $list;
+    }
+    
+    /**
+     * Get assistant by slug
+     */
+    private function get_assistant_by_slug($slug) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'fitbot_assistants';
+        
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE slug = %s",
+            $slug
+        ), ARRAY_A);
+    }
+    
+    /**
+     * Get assistant by ID
+     */
+    private function get_assistant_by_id($id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'fitbot_assistants';
+        
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE id = %d",
+            $id
+        ), ARRAY_A);
+    }
+    
+    /**
+     * Check if user has access to specific assistant
+     */
+    private function check_assistant_access($user_id, $assistant_id) {
+        if (!$user_id) {
+            return false;
+        }
+        
+        $assistant = $this->get_assistant_by_id($assistant_id);
+        if (!$assistant || !$assistant['woo_product_id']) {
+            return true; // Free assistant or no product linked
+        }
+        
+        return $this->subscription_checker->has_active_subscription($user_id, $assistant['woo_product_id']);
+    }
+    
+    /**
+     * Check if user has reached assistant usage limits
+     */
+    private function has_reached_assistant_limit($user_id, $assistant_id, $message_type) {
+        $assistant = $this->get_assistant_by_id($assistant_id);
+        if (!$assistant) {
+            return false;
+        }
+        
+        $daily_usage = Fitbot_Core::get_daily_usage($user_id, $assistant_id);
+        $monthly_usage = Fitbot_Core::get_monthly_usage($user_id, $assistant_id);
+        
+        return ($daily_usage >= $assistant['daily_limit']) || ($monthly_usage >= $assistant['monthly_limit']);
+    }
+    
+    /**
+     * Get subscription message for assistant
+     */
+    private function get_subscription_message($assistant) {
+        return sprintf(
+            __('To chat with %s, you need an active subscription. Subscribe for %s %s per month to get access.', 'fitbot-ai-chatbot'),
+            $assistant['name'],
+            $assistant['currency'],
+            number_format($assistant['price'], 2)
+        );
+    }
+    
+    /**
+     * Get limit reached message for assistant
+     */
+    private function get_limit_message($assistant) {
+        return sprintf(
+            __('You\'ve reached your usage limit for %s. Daily limit: %d, Monthly limit: %d. Consider upgrading for more access.', 'fitbot-ai-chatbot'),
+            $assistant['name'],
+            $assistant['daily_limit'],
+            $assistant['monthly_limit']
+        );
+    }
+    
+    /**
+     * Get purchase URL for assistant
+     */
+    private function get_assistant_purchase_url($assistant) {
+        if ($assistant['woo_product_id']) {
+            return get_permalink($assistant['woo_product_id']);
+        }
+        
+        return home_url('/shop/');
+    }
+    
+    /**
+     * Build enhanced prompt for assistant
+     */
+    private function build_assistant_prompt($assistant, $message, $type) {
+        $base_prompt = $assistant['prompt'] ?: 'You are a helpful AI assistant.';
+        
+        $personality_context = '';
+        if ($assistant['personality']) {
+            $personality_context = sprintf(
+                "\n\nPersonality: You should respond in a %s manner.",
+                $assistant['personality']
+            );
+        }
+        
+        $context_info = sprintf(
+            "\n\nAssistant: %s\nUser message type: %s\nUser message: %s",
+            $assistant['name'],
+            $type,
+            $message
+        );
+        
+        return $base_prompt . $personality_context . $context_info;
     }
 }

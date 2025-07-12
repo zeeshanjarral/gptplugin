@@ -62,7 +62,9 @@ class FitbotAIChatbot {
         add_action('init', array($this, 'init'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_scripts'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
-        add_action('wp_footer', array($this, 'render_chatbot_widget'));
+        // add_action('wp_footer', array($this, 'render_chatbot_widget'));
+        
+        add_shortcode('fitbot_assistant', array($this, 'render_assistant_shortcode'));
         
         add_action('wp_ajax_fitbot_chat', array($this, 'handle_chat_request'));
         add_action('wp_ajax_nopriv_fitbot_chat', array($this, 'handle_chat_request'));
@@ -85,6 +87,7 @@ class FitbotAIChatbot {
             require_once FITBOT_PLUGIN_PATH . 'admin/class-admin-menu.php';
             require_once FITBOT_PLUGIN_PATH . 'admin/class-content-upload-page.php';
             require_once FITBOT_PLUGIN_PATH . 'admin/class-settings-page.php';
+            require_once FITBOT_PLUGIN_PATH . 'admin/class-assistant-manager.php';
         }
     }
     
@@ -103,6 +106,7 @@ class FitbotAIChatbot {
         
         if (is_admin()) {
             new Fitbot_Admin_Menu();
+            new Fitbot_Assistant_Manager();
         }
         
         load_plugin_textdomain('fitbot-ai-chatbot', false, dirname(FITBOT_PLUGIN_BASENAME) . '/languages');
@@ -196,6 +200,8 @@ class FitbotAIChatbot {
         
         $this->set_default_options();
         
+        $this->create_default_assistants();
+        
         flush_rewrite_rules();
     }
     
@@ -238,9 +244,29 @@ class FitbotAIChatbot {
             UNIQUE KEY user_date (user_id, date)
         ) $charset_collate;";
         
+        $assistants_table = $wpdb->prefix . 'fitbot_assistants';
+        $assistants_sql = "CREATE TABLE $assistants_table (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            name varchar(100) NOT NULL,
+            slug varchar(50) NOT NULL UNIQUE,
+            prompt text NOT NULL,
+            personality varchar(50) DEFAULT 'professional',
+            price decimal(10,2) NOT NULL,
+            currency varchar(3) DEFAULT 'EUR',
+            daily_limit int(11) DEFAULT 10,
+            monthly_limit int(11) DEFAULT 300,
+            woo_product_id bigint(20),
+            color varchar(7) DEFAULT '#0073aa',
+            greeting_message text,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY slug (slug)
+        ) $charset_collate;";
+        
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
         dbDelta($usage_sql);
+        dbDelta($assistants_sql);
     }
     
     /**
@@ -263,6 +289,97 @@ class FitbotAIChatbot {
                 add_option('fitbot_' . $key, $value);
             }
         }
+    }
+    
+    /**
+     * Create default assistants on activation
+     */
+    private function create_default_assistants() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'fitbot_assistants';
+        
+        $existing = $wpdb->get_var("SELECT COUNT(*) FROM $table");
+        if ($existing > 0) {
+            return;
+        }
+        
+        $assistants = array(
+            array(
+                'name' => 'Start Plan Assistant',
+                'slug' => 'start',
+                'price' => 5.00,
+                'prompt' => 'You are a basic fitness assistant focused on helping beginners start their fitness journey. Provide simple, encouraging advice for basic workouts and healthy eating habits.',
+                'personality' => 'encouraging',
+                'daily_limit' => 5,
+                'monthly_limit' => 100,
+                'color' => '#28a745',
+                'greeting_message' => 'Hi! I\'m your Start Plan Assistant. Ready to begin your fitness journey?'
+            ),
+            array(
+                'name' => 'Pro Plan Assistant',
+                'slug' => 'pro',
+                'price' => 5.00,
+                'prompt' => 'You are a professional fitness coach with expertise in intermediate to advanced training programs, nutrition planning, and workout optimization.',
+                'personality' => 'professional',
+                'daily_limit' => 15,
+                'monthly_limit' => 300,
+                'color' => '#007cba',
+                'greeting_message' => 'Hello! I\'m your Pro Plan Assistant. Let\'s optimize your fitness routine!'
+            ),
+            array(
+                'name' => 'VIP Plan Assistant',
+                'slug' => 'vip',
+                'price' => 24.00,
+                'prompt' => 'You are an elite wellness expert providing comprehensive health guidance including advanced fitness programs, detailed nutrition analysis, medical wellness advice, and personalized health optimization strategies.',
+                'personality' => 'expert',
+                'daily_limit' => 50,
+                'monthly_limit' => 1000,
+                'color' => '#dc3545',
+                'greeting_message' => 'Welcome! I\'m your VIP Plan Assistant. Let\'s achieve your ultimate health and fitness goals!'
+            )
+        );
+        
+        foreach ($assistants as $assistant) {
+            $wpdb->insert($table, $assistant);
+        }
+    }
+    
+    /**
+     * Get assistant by slug
+     */
+    public function get_assistant_by_slug($slug) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'fitbot_assistants';
+        
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE slug = %s",
+            $slug
+        ), ARRAY_A);
+    }
+    
+    /**
+     * Render assistant shortcode
+     */
+    public function render_assistant_shortcode($atts) {
+        $atts = shortcode_atts(array(
+            'id' => '',
+            'slug' => '',
+            'width' => '100%',
+            'height' => '500px'
+        ), $atts);
+        
+        if (empty($atts['slug'])) {
+            return '<div class="fitbot-error">Error: Assistant slug is required</div>';
+        }
+        
+        $assistant = $this->get_assistant_by_slug($atts['slug']);
+        if (!$assistant) {
+            return '<div class="fitbot-error">Error: Assistant not found</div>';
+        }
+        
+        ob_start();
+        include FITBOT_PLUGIN_PATH . 'templates/assistant-shortcode.php';
+        return ob_get_clean();
     }
     
     /**

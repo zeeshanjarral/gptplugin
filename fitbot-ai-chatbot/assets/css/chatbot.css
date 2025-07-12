@@ -776,3 +776,275 @@
     background: #e8f5e8;
     border-left: 3px solid #4caf50;
 }
+
+/* Shortcode Assistant Styles */
+.fitbot-assistant-container {
+    border: 1px solid #e1e5e9;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    --fitbot-border-color: #e1e5e9;
+    --fitbot-border-radius: 8px;
+    --fitbot-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.fitbot-assistant-header {
+    background: var(--fitbot-primary-color, #0073aa);
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.fitbot-assistant-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.fitbot-assistant-name {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.fitbot-assistant-personality {
+    font-size: 12px;
+    opacity: 0.9;
+    text-transform: capitalize;
+    margin-top: 2px;
+}
+
+.fitbot-assistant-pricing {
+    display: flex;
+    align-items: center;
+}
+
+.fitbot-price {
+    font-size: 14px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.2);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.fitbot-chat-area {
+    height: calc(100% - 70px);
+    display: flex;
+    flex-direction: column;
+    min-height: 300px;
+}
+
+.fitbot-chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    max-height: calc(100% - 120px);
+    background: #fafbfc;
+}
+
+.fitbot-chat-input-area {
+    border-top: 1px solid var(--fitbot-border-color, #e1e5e9);
+    padding: 15px 20px;
+    background: #fafbfc;
+}
+
+.fitbot-input-container {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.fitbot-message-input {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 10px 15px;
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    max-height: 100px;
+    min-height: 40px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.fitbot-message-input:focus {
+    border-color: var(--fitbot-primary-color, #0073aa);
+}
+
+.fitbot-send-button {
+    background: var(--fitbot-primary-color, #0073aa);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.fitbot-send-button:hover {
+    background: var(--fitbot-primary-color-dark, #005a87);
+}
+
+.fitbot-send-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.fitbot-login-required,
+.fitbot-subscription-required {
+    padding: 20px;
+    text-align: center;
+    background: #fafbfc;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fitbot-system-message {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin: 20px;
+}
+
+.fitbot-login-btn,
+.fitbot-subscribe-btn {
+    display: inline-block;
+    background: var(--fitbot-primary-color, #0073aa);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    margin-top: 10px;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.fitbot-login-btn:hover,
+.fitbot-subscribe-btn:hover {
+    background: var(--fitbot-primary-color-dark, #005a87);
+    color: white;
+    text-decoration: none;
+}
+
+.fitbot-usage-info {
+    margin-top: 8px;
+    text-align: center;
+}
+
+.fitbot-usage-text {
+    font-size: 11px;
+    color: #666;
+}
+
+.fitbot-typing-indicator {
+    padding: 10px 15px;
+    margin-bottom: 10px;
+}
+
+.fitbot-typing-indicator span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #999;
+    margin: 0 2px;
+    animation: fitbot-typing 1.4s infinite ease-in-out;
+}
+
+.fitbot-typing-indicator span:nth-child(1) { 
+    animation-delay: -0.32s; 
+}
+
+.fitbot-typing-indicator span:nth-child(2) { 
+    animation-delay: -0.16s; 
+}
+
+@keyframes fitbot-typing {
+    0%, 80%, 100% { 
+        transform: scale(0.8); 
+        opacity: 0.5; 
+    }
+    40% { 
+        transform: scale(1); 
+        opacity: 1; 
+    }
+}
+
+/* Responsive styles for shortcode assistants */
+@media (max-width: 768px) {
+    .fitbot-assistant-container {
+        border-radius: 0;
+        height: 100vh !important;
+        width: 100% !important;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 9999;
+    }
+    
+    .fitbot-assistant-header {
+        padding: 12px 15px;
+    }
+    
+    .fitbot-assistant-name {
+        font-size: 16px;
+    }
+    
+    .fitbot-chat-messages {
+        padding: 15px;
+    }
+    
+    .fitbot-message-bubble {
+        max-width: 90%;
+    }
+    
+    .fitbot-input-container {
+        gap: 8px;
+    }
+    
+    .fitbot-message-input {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+}
+
+@media (max-width: 480px) {
+    .fitbot-assistant-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .fitbot-assistant-pricing {
+        align-self: flex-end;
+    }
+    
+    .fitbot-chat-input-area {
+        padding: 10px 15px;
+    }
+}
+
+/* Error styles for shortcode */
+.fitbot-error {
+    background: #ffebee;
+    color: #c62828;
+    padding: 15px;
+    border-radius: 4px;
+    border-left: 4px solid #f44336;
+    font-weight: 500;
+}
