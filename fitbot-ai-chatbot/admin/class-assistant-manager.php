@@ -72,6 +72,17 @@ class Fitbot_Assistant_Manager {
                 </div>
             <?php endif; ?>
             
+            <div class="notice notice-info" style="margin: 20px 0;">
+                <h4>How to Use Assistant Shortcodes</h4>
+                <p>Copy any shortcode from the table below and paste it into your pages or posts:</p>
+                <ul>
+                    <li><code>[fitbot_assistant slug="start"]</code> - Start Plan Assistant</li>
+                    <li><code>[fitbot_assistant slug="pro"]</code> - Pro Plan Assistant</li>
+                    <li><code>[fitbot_assistant slug="vip"]</code> - VIP Plan Assistant</li>
+                </ul>
+                <p><strong>Tip:</strong> You can also use aliases like <code>starter-plan</code>, <code>pro-plan</code>, or <code>vip-plan</code></p>
+            </div>
+            
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
@@ -104,6 +115,7 @@ class Fitbot_Assistant_Manager {
                                 <td><?php echo esc_html($assistant->monthly_limit); ?></td>
                                 <td>
                                     <code>[fitbot_assistant slug="<?php echo esc_attr($assistant->slug); ?>"]</code>
+                                    <br><small style="color: #666;">Copy this shortcode to use in pages/posts</small>
                                 </td>
                                 <td>
                                     <a href="<?php echo admin_url('admin.php?page=fitbot-assistants&action=edit&id=' . $assistant->id); ?>" class="button button-small">

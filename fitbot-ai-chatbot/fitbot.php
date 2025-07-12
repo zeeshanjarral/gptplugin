@@ -575,6 +575,27 @@ class FitbotAIChatbot {
     }
     
     /**
+     * Get assistant by slug with alias support
+     */
+    public function get_assistant_by_slug_with_aliases($slug) {
+        $slug_aliases = array(
+            'starter-plan' => 'start',
+            'starter' => 'start',
+            'basic' => 'start',
+            'pro-plan' => 'pro',
+            'professional' => 'pro',
+            'vip-plan' => 'vip',
+            'premium' => 'vip'
+        );
+        
+        if (isset($slug_aliases[$slug])) {
+            $slug = $slug_aliases[$slug];
+        }
+        
+        return $this->get_assistant_by_slug($slug);
+    }
+    
+    /**
      * Render assistant shortcode
      */
     public function render_assistant_shortcode($atts) {
@@ -586,16 +607,26 @@ class FitbotAIChatbot {
         ), $atts);
         
         if (empty($atts['slug'])) {
-            return '<div class="fitbot-error">Error: Assistant slug is required</div>';
+            return '<div class="fitbot-error" style="padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404;">Error: Assistant slug is required. Available slugs: start, pro, vip</div>';
         }
         
-        $assistant = $this->get_assistant_by_slug($atts['slug']);
+        $assistant = $this->get_assistant_by_slug_with_aliases($atts['slug']);
         if (!$assistant) {
-            return '<div class="fitbot-error">Error: Assistant not found</div>';
+            global $wpdb;
+            $table = $wpdb->prefix . 'fitbot_assistants';
+            $available_slugs = $wpdb->get_col("SELECT slug FROM $table ORDER BY slug");
+            $slugs_list = !empty($available_slugs) ? implode(', ', $available_slugs) : 'start, pro, vip';
+            
+            return '<div class="fitbot-error" style="padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404;">Error: Assistant "' . esc_html($atts['slug']) . '" not found. Available slugs: ' . esc_html($slugs_list) . '</div>';
+        }
+        
+        $template_path = FITBOT_PLUGIN_PATH . 'templates/assistant-shortcode.php';
+        if (!file_exists($template_path)) {
+            return '<div class="fitbot-error" style="padding: 15px; background: #ffebee; border: 1px solid #f44336; border-radius: 4px; color: #c62828;">Error: Assistant template file not found.</div>';
         }
         
         ob_start();
-        include FITBOT_PLUGIN_PATH . 'templates/assistant-shortcode.php';
+        include $template_path;
         return ob_get_clean();
     }
     
