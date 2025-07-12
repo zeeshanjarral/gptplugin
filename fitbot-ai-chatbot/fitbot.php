@@ -100,6 +100,8 @@ class FitbotAIChatbot {
             return;
         }
         
+        add_action('admin_notices', array($this, 'check_tables_notice'));
+        
         new Fitbot_Core();
         new Fitbot_Custom_Post_Types();
         new Fitbot_Ajax_Handlers();
@@ -107,6 +109,7 @@ class FitbotAIChatbot {
         if (is_admin()) {
             new Fitbot_Admin_Menu();
             new Fitbot_Assistant_Manager();
+            new Fitbot_Settings_Page();
         }
         
         load_plugin_textdomain('fitbot-ai-chatbot', false, dirname(FITBOT_PLUGIN_BASENAME) . '/languages');
@@ -264,9 +267,66 @@ class FitbotAIChatbot {
         ) $charset_collate;";
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);
-        dbDelta($usage_sql);
-        dbDelta($assistants_sql);
+        
+        $result1 = dbDelta($sql);
+        $result2 = dbDelta($usage_sql);
+        $result3 = dbDelta($assistants_sql);
+        
+        if ($wpdb->last_error) {
+            error_log('FITBOT Table Creation Error: ' . $wpdb->last_error);
+        }
+        
+        $tables_created = array();
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name) {
+            $tables_created[] = 'conversations';
+        }
+        if ($wpdb->get_var("SHOW TABLES LIKE '$usage_table'") == $usage_table) {
+            $tables_created[] = 'usage';
+        }
+        if ($wpdb->get_var("SHOW TABLES LIKE '$assistants_table'") == $assistants_table) {
+            $tables_created[] = 'assistants';
+        }
+        
+        update_option('fitbot_tables_created', $tables_created);
+        update_option('fitbot_table_creation_attempted', current_time('mysql'));
+    }
+    
+    /**
+     * Manual table creation for troubleshooting
+     */
+    public function manual_create_tables() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Insufficient permissions', 'fitbot-ai-chatbot'));
+        }
+        
+        $this->create_tables();
+        
+        $tables_created = get_option('fitbot_tables_created', array());
+        $missing_tables = array();
+        
+        global $wpdb;
+        $required_tables = array(
+            'fitbot_assistants' => $wpdb->prefix . 'fitbot_assistants',
+            'fitbot_conversations' => $wpdb->prefix . 'fitbot_conversations', 
+            'fitbot_usage' => $wpdb->prefix . 'fitbot_usage'
+        );
+        
+        foreach ($required_tables as $name => $full_name) {
+            if ($wpdb->get_var("SHOW TABLES LIKE '$full_name'") != $full_name) {
+                $missing_tables[] = $name;
+            }
+        }
+        
+        if (empty($missing_tables)) {
+            $message = 'All database tables created successfully!';
+            $message_type = 'success';
+        } else {
+            $message = 'Table creation attempted but some tables are still missing: ' . implode(', ', $missing_tables) . '. Please check your database permissions or contact your hosting provider.';
+            $message_type = 'error';
+        }
+        
+        wp_redirect(admin_url('admin.php?page=fitbot-settings&message=' . urlencode($message) . '&message_type=' . $message_type));
+        exit;
     }
     
     /**
@@ -392,6 +452,37 @@ class FitbotAIChatbot {
         echo '<div class="notice notice-error"><p>';
         echo __('FITBOT AI Chatbot requires WooCommerce to be installed and activated.', 'fitbot-ai-chatbot');
         echo '</p></div>';
+    }
+    
+    /**
+     * Check if required tables exist and show notice
+     */
+    public function check_tables_notice() {
+        global $wpdb;
+        
+        $assistants_table = $wpdb->prefix . 'fitbot_assistants';
+        $conversations_table = $wpdb->prefix . 'fitbot_conversations';
+        $usage_table = $wpdb->prefix . 'fitbot_usage';
+        
+        $missing_tables = array();
+        
+        if ($wpdb->get_var("SHOW TABLES LIKE '$assistants_table'") != $assistants_table) {
+            $missing_tables[] = 'fitbot_assistants';
+        }
+        if ($wpdb->get_var("SHOW TABLES LIKE '$conversations_table'") != $conversations_table) {
+            $missing_tables[] = 'fitbot_conversations';
+        }
+        if ($wpdb->get_var("SHOW TABLES LIKE '$usage_table'") != $usage_table) {
+            $missing_tables[] = 'fitbot_usage';
+        }
+        
+        if (!empty($missing_tables)) {
+            $create_url = admin_url('admin.php?page=fitbot-settings&action=create_tables&_wpnonce=' . wp_create_nonce('fitbot_create_tables'));
+            echo '<div class="notice notice-error"><p>';
+            echo __('FITBOT AI Chatbot: Required database tables are missing: ', 'fitbot-ai-chatbot') . implode(', ', $missing_tables);
+            echo '<br><a href="' . esc_url($create_url) . '" class="button button-primary">' . __('Create Tables Now', 'fitbot-ai-chatbot') . '</a>';
+            echo '</p></div>';
+        }
     }
 }
 

@@ -9,7 +9,80 @@ if (!defined('ABSPATH')) {
 
 class Fitbot_Settings_Page {
     
+    /**
+     * Constructor
+     */
+    public function __construct() {
+        add_action('admin_init', array($this, 'init_settings'));
+        add_action('admin_init', array($this, 'handle_table_creation'));
+    }
+    
+    /**
+     * Initialize settings
+     */
+    public function init_settings() {
+        if (isset($_POST['submit']) && wp_verify_nonce($_POST['_wpnonce'], 'fitbot_settings_nonce')) {
+            $this->save_settings();
+        }
+    }
+    
+    /**
+     * Handle manual table creation
+     */
+    public function handle_table_creation() {
+        if (isset($_GET['action']) && $_GET['action'] === 'create_tables' && isset($_GET['_wpnonce'])) {
+            if (!wp_verify_nonce($_GET['_wpnonce'], 'fitbot_create_tables')) {
+                wp_die(__('Security check failed', 'fitbot-ai-chatbot'));
+            }
+            
+            if (!current_user_can('manage_options')) {
+                wp_die(__('Insufficient permissions', 'fitbot-ai-chatbot'));
+            }
+            
+            $plugin = FitbotAIChatbot::get_instance();
+            $plugin->manual_create_tables();
+        }
+    }
+    
+    /**
+     * Save settings
+     */
+    private function save_settings() {
+        $settings = array(
+            'fitbot_openai_api_key',
+            'fitbot_chatbot_delay',
+            'fitbot_chatbot_greeting',
+            'fitbot_woo_start_product_id',
+            'fitbot_woo_pro_product_id',
+            'fitbot_woo_vip_product_id',
+            'fitbot_chatbot_color',
+            'fitbot_chatbot_position',
+            'fitbot_enable_sound',
+            'fitbot_enable_typing_indicator',
+            'fitbot_upgrade_message_pro',
+            'fitbot_upgrade_message_vip'
+        );
+        
+        foreach ($settings as $setting) {
+            if (isset($_POST[$setting])) {
+                update_option($setting, sanitize_text_field($_POST[$setting]));
+            }
+        }
+        
+        add_action('admin_notices', function() {
+            echo '<div class="notice notice-success is-dismissible"><p>' . __('Settings saved successfully!', 'fitbot-ai-chatbot') . '</p></div>';
+        });
+    }
+    
     public function render() {
+        // Display messages from table creation
+        if (isset($_GET['message']) && isset($_GET['message_type'])) {
+            $message = sanitize_text_field($_GET['message']);
+            $message_type = sanitize_text_field($_GET['message_type']);
+            $class = $message_type === 'success' ? 'notice-success' : 'notice-error';
+            echo '<div class="notice ' . $class . ' is-dismissible"><p>' . esc_html($message) . '</p></div>';
+        }
+        
         ?>
         <div class="wrap">
             <h1><?php _e('FITBOT AI Chatbot Settings', 'fitbot-ai-chatbot'); ?></h1>
