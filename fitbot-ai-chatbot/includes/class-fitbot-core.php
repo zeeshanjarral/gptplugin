@@ -41,37 +41,52 @@ class Fitbot_Core {
     /**
      * Log conversation
      */
-    public static function log_conversation($user_id, $message_type, $message, $response = '') {
+    public static function log_conversation($user_id, $message_type, $message, $response = '', $assistant_id = null) {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'fitbot_conversations';
         
+        $data = array(
+            'user_id' => $user_id,
+            'message_type' => $message_type,
+            'message' => $message,
+            'response' => $response,
+            'created_at' => current_time('mysql')
+        );
+        
+        if ($assistant_id) {
+            $data['assistant_id'] = $assistant_id;
+        }
+        
         return $wpdb->insert(
             $table_name,
-            array(
-                'user_id' => $user_id,
-                'message_type' => $message_type,
-                'message' => $message,
-                'response' => $response,
-                'created_at' => current_time('mysql')
-            ),
-            array('%d', '%s', '%s', '%s', '%s')
+            $data,
+            array('%d', '%s', '%s', '%s', '%s', '%d')
         );
     }
     
     /**
      * Get user conversation history
      */
-    public static function get_conversation_history($user_id, $limit = 10) {
+    public static function get_conversation_history($user_id, $limit = 10, $assistant_id = null) {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'fitbot_conversations';
         
+        $where_clause = "WHERE user_id = %d";
+        $params = array($user_id);
+        
+        if ($assistant_id) {
+            $where_clause .= " AND assistant_id = %d";
+            $params[] = $assistant_id;
+        }
+        
+        $params[] = $limit;
+        
         return $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM $table_name WHERE user_id = %d ORDER BY created_at DESC LIMIT %d",
-                $user_id,
-                $limit
+                "SELECT * FROM $table_name $where_clause ORDER BY created_at DESC LIMIT %d",
+                ...$params
             )
         );
     }
@@ -118,7 +133,7 @@ class Fitbot_Core {
     /**
      * Get user daily usage
      */
-    public static function get_daily_usage($user_id, $date = null) {
+    public static function get_daily_usage($user_id, $assistant_id = null, $date = null) {
         global $wpdb;
         
         if (!$date) {
@@ -127,13 +142,83 @@ class Fitbot_Core {
         
         $table_name = $wpdb->prefix . 'fitbot_usage';
         
-        return $wpdb->get_row(
+        $result = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT * FROM $table_name WHERE user_id = %d AND date = %s",
                 $user_id,
                 $date
             )
         );
+        
+        if (!$result) {
+            return 0;
+        }
+        
+        return $result->recipes_requested + $result->workouts_requested + $result->questions_asked;
+    }
+    
+    /**
+     * Get user monthly usage
+     */
+    public static function get_monthly_usage($user_id, $assistant_id = null) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'fitbot_usage';
+        $current_month = current_time('Y-m');
+        
+        $results = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM $table_name WHERE user_id = %d AND date LIKE %s",
+                $user_id,
+                $current_month . '%'
+            )
+        );
+        
+        $total_usage = 0;
+        foreach ($results as $usage) {
+            $total_usage += $usage->recipes_requested + $usage->workouts_requested + $usage->questions_asked;
+        }
+        
+        return $total_usage;
+    }
+    
+    /**
+     * Track assistant usage
+     */
+    public static function track_assistant_usage($user_id, $assistant_id, $type) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'fitbot_usage';
+        $today = current_time('Y-m-d');
+        
+        $existing = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM $table_name WHERE user_id = %d AND date = %s",
+                $user_id,
+                $today
+            )
+        );
+        
+        if ($existing) {
+            $column = $type . '_requested';
+            $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE $table_name SET $column = $column + 1 WHERE user_id = %d AND date = %s",
+                    $user_id,
+                    $today
+                )
+            );
+        } else {
+            $data = array(
+                'user_id' => $user_id,
+                'date' => $today,
+                'recipes_requested' => $type === 'recipes' ? 1 : 0,
+                'workouts_requested' => $type === 'workouts' ? 1 : 0,
+                'questions_asked' => $type === 'questions' ? 1 : 0
+            );
+            
+            $wpdb->insert($table_name, $data);
+        }
     }
     
     /**

@@ -83,7 +83,7 @@ $unique_id = uniqid('fitbot_');
                         id="fitbot-send-<?php echo esc_attr($assistant['slug']); ?>" 
                         class="fitbot-send-button" 
                         type="button">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                         </svg>
                     </button>

@@ -401,6 +401,7 @@ class FitbotAIChatbot {
             $sql = "CREATE TABLE IF NOT EXISTS $full_table_name (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id BIGINT NOT NULL,
+                assistant_id INT DEFAULT NULL,
                 message_type VARCHAR(20) NOT NULL,
                 message TEXT NOT NULL,
                 response TEXT,
