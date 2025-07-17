@@ -228,6 +228,7 @@ class FitbotAIChatbot {
             'fitbot_conversations' => "
                 id mediumint(9) NOT NULL AUTO_INCREMENT,
                 user_id bigint(20) NOT NULL,
+                assistant_id int(11) DEFAULT NULL,
                 message_type varchar(20) NOT NULL,
                 message text NOT NULL,
                 response text,
