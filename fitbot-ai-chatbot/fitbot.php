@@ -514,8 +514,14 @@ class FitbotAIChatbot {
         global $wpdb;
         $table = $wpdb->prefix . 'fitbot_assistants';
         
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table'") != $table) {
+            error_log('FITBOT: Cannot create default assistants - table does not exist');
+            return;
+        }
+        
         $existing = $wpdb->get_var("SELECT COUNT(*) FROM $table");
         if ($existing > 0) {
+            error_log('FITBOT: Default assistants already exist, skipping creation');
             return;
         }
         
@@ -562,8 +568,32 @@ class FitbotAIChatbot {
         );
         
         foreach ($assistants as $assistant) {
-            $wpdb->insert($table, $assistant);
+            $result = $wpdb->insert($table, $assistant);
+            if ($result === false) {
+                error_log('FITBOT: Failed to create assistant: ' . $assistant['slug'] . ' - Error: ' . $wpdb->last_error);
+            } else {
+                error_log('FITBOT: Successfully created assistant: ' . $assistant['slug']);
+            }
         }
+    }
+    
+    /**
+     * Force recreate default assistants (for debugging)
+     */
+    public function recreate_default_assistants() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Insufficient permissions', 'fitbot-ai-chatbot'));
+        }
+        
+        global $wpdb;
+        $table = $wpdb->prefix . 'fitbot_assistants';
+        
+        $wpdb->query("DELETE FROM $table WHERE slug IN ('start', 'pro', 'vip')");
+        
+        $this->create_default_assistants();
+        
+        wp_redirect(admin_url('admin.php?page=fitbot-assistants&message=recreated'));
+        exit;
     }
     
     /**

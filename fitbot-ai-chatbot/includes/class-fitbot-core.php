@@ -140,6 +140,21 @@ class Fitbot_Core {
             $date = current_time('Y-m-d');
         }
         
+        if ($assistant_id) {
+            $conversations_table = $wpdb->prefix . 'fitbot_conversations';
+            $count = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM $conversations_table 
+                     WHERE user_id = %d AND assistant_id = %d 
+                     AND DATE(created_at) = %s",
+                    $user_id,
+                    $assistant_id,
+                    $date
+                )
+            );
+            return intval($count);
+        }
+        
         $table_name = $wpdb->prefix . 'fitbot_usage';
         
         $result = $wpdb->get_row(
@@ -163,8 +178,24 @@ class Fitbot_Core {
     public static function get_monthly_usage($user_id, $assistant_id = null) {
         global $wpdb;
         
-        $table_name = $wpdb->prefix . 'fitbot_usage';
         $current_month = current_time('Y-m');
+        
+        if ($assistant_id) {
+            $conversations_table = $wpdb->prefix . 'fitbot_conversations';
+            $count = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM $conversations_table 
+                     WHERE user_id = %d AND assistant_id = %d 
+                     AND DATE_FORMAT(created_at, '%%Y-%%m') = %s",
+                    $user_id,
+                    $assistant_id,
+                    $current_month
+                )
+            );
+            return intval($count);
+        }
+        
+        $table_name = $wpdb->prefix . 'fitbot_usage';
         
         $results = $wpdb->get_results(
             $wpdb->prepare(

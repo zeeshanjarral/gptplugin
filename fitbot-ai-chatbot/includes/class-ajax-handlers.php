@@ -504,7 +504,18 @@ class Fitbot_Ajax_Handlers {
         $daily_usage = Fitbot_Core::get_daily_usage($user_id, $assistant_id);
         $monthly_usage = Fitbot_Core::get_monthly_usage($user_id, $assistant_id);
         
-        return ($daily_usage >= $assistant['daily_limit']) || ($monthly_usage >= $assistant['monthly_limit']);
+        // Check daily limit
+        if ($assistant['daily_limit'] > 0 && $daily_usage >= $assistant['daily_limit']) {
+            error_log("FITBOT: User $user_id exceeded daily limit for assistant $assistant_id ($daily_usage >= {$assistant['daily_limit']})");
+            return true;
+        }
+        
+        if ($assistant['monthly_limit'] > 0 && $monthly_usage >= $assistant['monthly_limit']) {
+            error_log("FITBOT: User $user_id exceeded monthly limit for assistant $assistant_id ($monthly_usage >= {$assistant['monthly_limit']})");
+            return true;
+        }
+        
+        return false;
     }
     
     /**

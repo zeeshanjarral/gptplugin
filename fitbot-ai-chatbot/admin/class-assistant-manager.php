@@ -14,6 +14,7 @@ class Fitbot_Assistant_Manager {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_post_fitbot_save_assistant', array($this, 'save_assistant'));
         add_action('admin_post_fitbot_delete_assistant', array($this, 'delete_assistant'));
+        add_action('admin_post_fitbot_recreate_assistants', array($this, 'recreate_assistants'));
     }
     
     /**
@@ -63,6 +64,12 @@ class Fitbot_Assistant_Manager {
             <h1><?php _e('AI Assistants', 'fitbot-ai-chatbot'); ?>
                 <a href="<?php echo admin_url('admin.php?page=fitbot-assistants&action=add'); ?>" class="page-title-action">
                     <?php _e('Add New Assistant', 'fitbot-ai-chatbot'); ?>
+                </a>
+                <a href="<?php echo admin_url('admin-post.php?action=fitbot_recreate_assistants&_wpnonce=' . wp_create_nonce('fitbot_recreate_assistants')); ?>" 
+                   class="page-title-action" 
+                   onclick="return confirm('<?php _e('This will delete and recreate the default assistants (start, pro, vip). Are you sure?', 'fitbot-ai-chatbot'); ?>');"
+                   style="background: #dc3545; border-color: #dc3545;">
+                    <?php _e('Recreate Default Assistants', 'fitbot-ai-chatbot'); ?>
                 </a>
             </h1>
             
@@ -404,5 +411,19 @@ class Fitbot_Assistant_Manager {
         $message = __('Assistant deleted successfully!', 'fitbot-ai-chatbot');
         wp_redirect(admin_url('admin.php?page=fitbot-assistants&message=' . urlencode($message)));
         exit;
+    }
+    
+    /**
+     * Recreate default assistants
+     */
+    public function recreate_assistants() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Insufficient permissions', 'fitbot-ai-chatbot'));
+        }
+        
+        check_admin_referer('fitbot_recreate_assistants');
+        
+        $plugin = FitbotAIChatbot::get_instance();
+        $plugin->recreate_default_assistants();
     }
 }
