@@ -27,8 +27,12 @@ class Fitbot_GPT_Chat_API {
             );
         }
         
-        $system_prompt = $this->build_system_prompt($user_plan);
-        $messages = $this->prepare_messages($system_prompt, $message, $conversation_history);
+        if (strpos($message, 'You are FITBOT') !== false || strpos($message, 'Assistant:') !== false) {
+            $messages = $this->prepare_enhanced_prompt_messages($message, $conversation_history);
+        } else {
+            $system_prompt = $this->build_system_prompt($user_plan);
+            $messages = $this->prepare_messages($system_prompt, $message, $conversation_history);
+        }
         
         $response = $this->make_api_request($messages);
         
@@ -110,6 +114,34 @@ class Fitbot_GPT_Chat_API {
         $messages[] = array(
             'role' => 'user',
             'content' => $user_message
+        );
+        
+        return $messages;
+    }
+    
+    /**
+     * Prepare messages array for enhanced prompt (already includes system context)
+     */
+    private function prepare_enhanced_prompt_messages($enhanced_prompt, $conversation_history = array()) {
+        $messages = array();
+        
+        $recent_history = array_slice($conversation_history, -5);
+        foreach ($recent_history as $exchange) {
+            $messages[] = array(
+                'role' => 'user',
+                'content' => $exchange->message
+            );
+            if (!empty($exchange->response)) {
+                $messages[] = array(
+                    'role' => 'assistant',
+                    'content' => $exchange->response
+                );
+            }
+        }
+        
+        $messages[] = array(
+            'role' => 'user',
+            'content' => $enhanced_prompt
         );
         
         return $messages;

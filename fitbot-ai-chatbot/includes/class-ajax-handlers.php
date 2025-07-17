@@ -107,7 +107,7 @@ class Fitbot_Ajax_Handlers {
     private function process_assistant_message($message, $type, $assistant, $history) {
         $enhanced_prompt = $this->build_assistant_prompt($assistant, $message, $type);
         
-        $response = $this->gpt_api->get_chat_response($enhanced_prompt, $assistant['slug'], $history, $assistant['prompt']);
+        $response = $this->gpt_api->get_chat_response($enhanced_prompt, $assistant['slug'], $history);
         
         if ($response['success']) {
             return array(
