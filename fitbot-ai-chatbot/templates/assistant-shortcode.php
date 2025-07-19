@@ -202,16 +202,16 @@ jQuery(document).ready(function($) {
 }
 
 .fitbot-assistant-message {
-    background: #FFD700;
+    background: #9b8841;
     color: #000000;
     margin-right: auto;
 }
 
 .fitbot-user-message {
     background: #000000;
-    color: #FFD700;
+    color: #9b8841;
     margin-left: auto;
-    border: 1px solid #FFD700;
+    border: 1px solid #9b8841;
 }
 
 .fitbot-system-message {
@@ -230,7 +230,7 @@ jQuery(document).ready(function($) {
 }
 
 .fitbot-chat-input-area {
-    border-top: 1px solid #FFD700;
+    border-top: 1px solid #9b8841;
     padding: 15px 20px;
     background: #000000;
 }
@@ -243,7 +243,7 @@ jQuery(document).ready(function($) {
 
 .fitbot-message-input {
     flex: 1;
-    border: 1px solid #FFD700;
+    border: 1px solid #9b8841;
     border-radius: 20px;
     padding: 10px 15px;
     resize: none;
@@ -252,20 +252,20 @@ jQuery(document).ready(function($) {
     max-height: 100px;
     min-height: 40px;
     background: #000000;
-    color: #FFD700;
+    color: #9b8841;
 }
 
 .fitbot-message-input:focus {
     outline: none;
-    border-color: #FFD700;
+    border-color: #9b8841;
 }
 
 .fitbot-message-input::placeholder {
-    color: rgba(255, 215, 0, 0.7);
+    color: rgba(155, 136, 65, 0.7);
 }
 
 .fitbot-send-button {
-    background: #FFD700;
+    background: #9b8841;
     color: #000000;
     border: none;
     border-radius: 50%;

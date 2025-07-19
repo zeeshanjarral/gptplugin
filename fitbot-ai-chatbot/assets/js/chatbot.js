@@ -330,10 +330,22 @@
                     } else {
                         self.addMessage(response.data.message || 'Sorry, something went wrong. Please try again.', 'bot', {type: 'error'});
                     }
+                    
+                    if (self.messageInput && self.messageInput.length) {
+                        setTimeout(function() {
+                            self.messageInput.focus();
+                        }, 100);
+                    }
                 },
                 error: function() {
                     self.hideTypingIndicator();
                     self.addMessage('Sorry, I\'m having trouble connecting right now. Please try again in a moment.', 'bot', {type: 'error'});
+                    
+                    if (self.messageInput && self.messageInput.length) {
+                        setTimeout(function() {
+                            self.messageInput.focus();
+                        }, 100);
+                    }
                 }
             });
         },
