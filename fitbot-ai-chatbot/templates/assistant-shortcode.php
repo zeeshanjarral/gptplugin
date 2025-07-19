@@ -83,9 +83,7 @@ $unique_id = uniqid('fitbot_');
                         id="fitbot-send-<?php echo esc_attr($assistant['slug']); ?>" 
                         class="fitbot-send-button" 
                         type="button">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                        </svg>
+                        Submit
                     </button>
                 </div>
                 
@@ -192,6 +190,7 @@ jQuery(document).ready(function($) {
     padding: 20px;
     overflow-y: auto;
     max-height: calc(100% - 120px);
+    background: #000000;
 }
 
 .fitbot-message-bubble {
@@ -203,15 +202,16 @@ jQuery(document).ready(function($) {
 }
 
 .fitbot-assistant-message {
-    background: #f1f3f4;
-    color: #333;
+    background: #FFD700;
+    color: #000000;
     margin-right: auto;
 }
 
 .fitbot-user-message {
-    background: var(--fitbot-primary-color, #0073aa);
-    color: white;
+    background: #000000;
+    color: #FFD700;
     margin-left: auto;
+    border: 1px solid #FFD700;
 }
 
 .fitbot-system-message {
@@ -230,9 +230,9 @@ jQuery(document).ready(function($) {
 }
 
 .fitbot-chat-input-area {
-    border-top: 1px solid #e1e5e9;
+    border-top: 1px solid #FFD700;
     padding: 15px 20px;
-    background: #fafbfc;
+    background: #000000;
 }
 
 .fitbot-input-container {
@@ -243,7 +243,7 @@ jQuery(document).ready(function($) {
 
 .fitbot-message-input {
     flex: 1;
-    border: 1px solid #ddd;
+    border: 1px solid #FFD700;
     border-radius: 20px;
     padding: 10px 15px;
     resize: none;
@@ -251,16 +251,22 @@ jQuery(document).ready(function($) {
     font-size: 14px;
     max-height: 100px;
     min-height: 40px;
+    background: #000000;
+    color: #FFD700;
 }
 
 .fitbot-message-input:focus {
     outline: none;
-    border-color: var(--fitbot-primary-color, #0073aa);
+    border-color: #FFD700;
+}
+
+.fitbot-message-input::placeholder {
+    color: rgba(255, 215, 0, 0.7);
 }
 
 .fitbot-send-button {
-    background: var(--fitbot-primary-color, #0073aa);
-    color: white;
+    background: #FFD700;
+    color: #000000;
     border: none;
     border-radius: 50%;
     width: 40px;
@@ -270,10 +276,13 @@ jQuery(document).ready(function($) {
     justify-content: center;
     cursor: pointer;
     transition: background-color 0.2s;
+    font-weight: bold;
+    font-size: 12px;
 }
 
 .fitbot-send-button:hover {
-    background: var(--fitbot-primary-color-dark, #005a87);
+    background: rgba(255, 215, 0, 0.8);
+    color: #000000;
 }
 
 .fitbot-login-btn, .fitbot-subscribe-btn {

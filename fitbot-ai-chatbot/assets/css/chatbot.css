@@ -5,13 +5,13 @@
 
 /* CSS Variables for theming */
 .fitbot-chatbot {
-    --fitbot-primary-color: #0073aa;
-    --fitbot-primary-rgb: 0, 115, 170;
-    --fitbot-secondary-color: #f0f8ff;
-    --fitbot-text-color: #333;
-    --fitbot-light-gray: #f5f5f5;
-    --fitbot-border-color: #ddd;
-    --fitbot-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    --fitbot-primary-color: #FFD700;
+    --fitbot-primary-rgb: 255, 215, 0;
+    --fitbot-secondary-color: #000000;
+    --fitbot-text-color: #FFD700;
+    --fitbot-light-gray: #000000;
+    --fitbot-border-color: #FFD700;
+    --fitbot-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);
     --fitbot-border-radius: 12px;
     --fitbot-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -201,6 +201,7 @@
     padding: 20px;
     overflow-y: auto;
     scroll-behavior: smooth;
+    background: #000000;
 }
 
 .fitbot-messages::-webkit-scrollbar {
@@ -268,14 +269,15 @@
 }
 
 .fitbot-user-message .fitbot-message-bubble {
-    background: var(--fitbot-primary-color);
-    color: white;
+    background: #000000;
+    color: #FFD700;
     border-bottom-right-radius: 4px;
+    border: 1px solid #FFD700;
 }
 
 .fitbot-bot-message .fitbot-message-bubble {
-    background: var(--fitbot-light-gray);
-    color: var(--fitbot-text-color);
+    background: #FFD700;
+    color: #000000;
     border-bottom-left-radius: 4px;
 }
 
@@ -439,7 +441,7 @@
 
 .fitbot-input {
     flex: 1;
-    border: 1px solid var(--fitbot-border-color);
+    border: 1px solid #FFD700;
     border-radius: 20px;
     padding: 12px 16px;
     font-size: 14px;
@@ -449,6 +451,8 @@
     transition: var(--fitbot-transition);
     min-height: 20px;
     max-height: 120px;
+    background: #000000;
+    color: #FFD700;
 }
 
 .fitbot-input:focus {
@@ -457,22 +461,24 @@
 }
 
 .fitbot-input::placeholder {
-    color: #999;
+    color: rgba(255, 215, 0, 0.7);
 }
 
 .fitbot-send-btn {
     width: 40px;
     height: 40px;
-    background: var(--fitbot-primary-color);
+    background: #FFD700;
     border: none;
     border-radius: 50%;
-    color: white;
+    color: #000000;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: var(--fitbot-transition);
     flex-shrink: 0;
+    font-weight: bold;
+    font-size: 12px;
 }
 
 .fitbot-send-btn:hover:not(:disabled) {
@@ -845,7 +851,7 @@
     padding: 20px;
     overflow-y: auto;
     max-height: calc(100% - 120px);
-    background: #fafbfc;
+    background: #000000;
 }
 
 .fitbot-chat-input-area {
@@ -862,7 +868,7 @@
 
 .fitbot-message-input {
     flex: 1;
-    border: 1px solid #ddd;
+    border: 1px solid #FFD700;
     border-radius: 20px;
     padding: 10px 15px;
     resize: none;
@@ -872,15 +878,21 @@
     min-height: 40px;
     outline: none;
     transition: border-color 0.2s;
+    background: #000000;
+    color: #FFD700;
 }
 
 .fitbot-message-input:focus {
-    border-color: var(--fitbot-primary-color, #0073aa);
+    border-color: #FFD700;
+}
+
+.fitbot-message-input::placeholder {
+    color: rgba(255, 215, 0, 0.7);
 }
 
 .fitbot-send-button {
-    background: var(--fitbot-primary-color, #0073aa);
-    color: white;
+    background: #FFD700;
+    color: #000000;
     border: none;
     border-radius: 50%;
     width: 40px;
@@ -890,10 +902,12 @@
     justify-content: center;
     cursor: pointer;
     transition: background-color 0.2s;
+    font-weight: bold;
+    font-size: 12px;
 }
 
 .fitbot-send-button:hover {
-    background: var(--fitbot-primary-color-dark, #005a87);
+    background: rgba(255, 215, 0, 0.8);
 }
 
 .fitbot-send-button:disabled {
